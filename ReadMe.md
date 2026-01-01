@@ -1,0 +1,1 @@
+This is the beginning of the smart contracts for casper hacks.

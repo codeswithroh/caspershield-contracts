@@ -1,2 +1,2 @@
 # CasperShield
-Deployed Contract: https://testnet.cspr.live/transaction/f79a17da279b079b12085e26a33e2b670ff17aec657f11bfc02181bde1b82606
+Deployed Contract: https://testnet.cspr.live/transaction/b9e15ff0c596b66259f136999546ae5822adc70d11af0ce007f8f6370a9d390b

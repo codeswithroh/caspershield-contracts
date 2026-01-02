@@ -9,6 +9,7 @@ use casper_types::{
     ApiError, EntryPoints, Key, U512,
 };
 use alloc::format;
+use alloc::collections::BTreeSet;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -19,6 +20,17 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 }
 
 const CONTRACT_NAME: &str = "CasperShieldVault";
+
+// Storage keys
+const USER_MODE: &str = "user_mode";
+const ALLOWED_CONTRACTS: &str = "allowed_contracts";
+const MAX_TX_AMOUNT_SAFE: &str = "max_tx_amount_safe";
+const MAX_TX_AMOUNT_BALANCED: &str = "max_tx_amount_balanced";
+const ADMIN: &str = "admin";
+
+// Default values
+const DEFAULT_SAFE_LIMIT: u64 = 1000;
+const DEFAULT_BALANCED_LIMIT: u64 = 10000;
 
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
@@ -42,19 +54,42 @@ impl From<Error> for ApiError {
     }
 }
 
-const USER_MODE: &str = "user_mode";
-const ADMIN: &str = "admin";
-
 #[no_mangle]
 pub extern "C" fn call() {
+    // Initialize entry points
+    let entry_points = EntryPoints::new();
+    
     let (contract_package_hash, _) = storage::new_contract(
-        EntryPoints::new(),
+        entry_points,
         None,
         None,
         None,
         None,
     );
     runtime::put_key(CONTRACT_NAME, contract_package_hash.into());
+    
+    // Initialize contract storage
+    initialize_contract();
+}
+
+fn initialize_contract() {
+    let caller = runtime::get_caller();
+    
+    // Set admin as the caller
+    let admin_key = storage::new_uref(caller).into();
+    runtime::put_key(ADMIN, admin_key);
+    
+    // Initialize default transaction limits
+    let safe_limit_key = storage::new_uref(U512::from(DEFAULT_SAFE_LIMIT)).into();
+    runtime::put_key(MAX_TX_AMOUNT_SAFE, safe_limit_key);
+    
+    let balanced_limit_key = storage::new_uref(U512::from(DEFAULT_BALANCED_LIMIT)).into();
+    runtime::put_key(MAX_TX_AMOUNT_BALANCED, balanced_limit_key);
+    
+    // Initialize empty allowed contracts set
+    let allowed_contracts: BTreeSet<Key> = BTreeSet::new();
+    let contracts_key = storage::new_uref(allowed_contracts).into();
+    runtime::put_key(ALLOWED_CONTRACTS, contracts_key);
 }
 
 fn get_admin() -> Key {
@@ -68,9 +103,14 @@ fn is_admin() -> bool {
     }
 }
 
-fn get_user_mode(_user: Key) -> u8 {
-    // Simplified implementation - always return Balanced mode
-    1u8
+fn get_user_mode(user: Key) -> u8 {
+    let user_mode_key = format!("{}:{}", USER_MODE, user);
+    runtime::get_key(&user_mode_key)
+        .map(|key| {
+            let mode_uref = key.into_uref().unwrap();
+            storage::read::<u8>(mode_uref).unwrap_or(None).unwrap_or(0u8) // Default to SAFE mode
+        })
+        .unwrap_or(0u8) // Default to SAFE mode
 }
 
 fn set_user_mode(user: Key, mode: u8) {
@@ -79,24 +119,37 @@ fn set_user_mode(user: Key, mode: u8) {
     runtime::put_key(&user_mode_key, mode_key);
 }
 
-fn is_contract_allowed(_contract: Key) -> bool {
-    // Simplified implementation - always allow for demo
-    true
+fn is_contract_allowed(contract: Key) -> bool {
+    runtime::get_key(ALLOWED_CONTRACTS)
+        .map(|key| {
+            let contracts_uref = key.into_uref().unwrap();
+            let contracts: BTreeSet<Key> = storage::read(contracts_uref).unwrap_or(None).unwrap_or_default();
+            contracts.contains(&contract)
+        })
+        .unwrap_or(false)
 }
 
 fn get_max_tx_amount_safe() -> U512 {
-    // Fixed default limit
-    U512::from(1000)
+    runtime::get_key(MAX_TX_AMOUNT_SAFE)
+        .map(|key| {
+            let amount_uref = key.into_uref().unwrap();
+            storage::read::<U512>(amount_uref).unwrap_or(None).unwrap_or(U512::from(DEFAULT_SAFE_LIMIT))
+        })
+        .unwrap_or(U512::from(DEFAULT_SAFE_LIMIT))
 }
 
 fn get_max_tx_amount_balanced() -> U512 {
-    // Fixed default limit
-    U512::from(10000)
+    runtime::get_key(MAX_TX_AMOUNT_BALANCED)
+        .map(|key| {
+            let amount_uref = key.into_uref().unwrap();
+            storage::read::<U512>(amount_uref).unwrap_or(None).unwrap_or(U512::from(DEFAULT_BALANCED_LIMIT))
+        })
+        .unwrap_or(U512::from(DEFAULT_BALANCED_LIMIT))
 }
 
 #[no_mangle]
 pub extern "C" fn set_mode() {
-    let mode: u8 = 1; // Default to Balanced for demo
+    let mode: u8 = 1; // Simplified for now - will add parameters later
     let caller = runtime::get_caller();
     
     if mode > 2 {
@@ -108,8 +161,8 @@ pub extern "C" fn set_mode() {
 
 #[no_mangle]
 pub extern "C" fn execute_action() {
-    let target_contract: Key = Key::Account(runtime::get_caller()); // Simplified
-    let amount: U512 = U512::from(500); // Simplified
+    let target_contract: Key = Key::Account(runtime::get_caller()); // Simplified for now
+    let amount: U512 = U512::from(500); // Simplified for now
     
     let caller = runtime::get_caller();
     let mode = get_user_mode(Key::Account(caller));
@@ -146,7 +199,7 @@ pub extern "C" fn add_allowed_contract() {
         runtime::revert(Error::Unauthorized);
     }
     
-    // Placeholder implementation
+    // Placeholder implementation - will add parameters later
 }
 
 #[no_mangle]
@@ -155,7 +208,7 @@ pub extern "C" fn remove_allowed_contract() {
         runtime::revert(Error::Unauthorized);
     }
     
-    // Placeholder implementation
+    // Placeholder implementation - will add parameters later
 }
 
 #[no_mangle]
@@ -164,5 +217,5 @@ pub extern "C" fn update_limits() {
         runtime::revert(Error::Unauthorized);
     }
     
-    // Placeholder implementation
+    // Placeholder implementation - will add parameters later
 }

@@ -2,10 +2,10 @@
 
 # Configuration
 NODE_URL="https://node.testnet.cspr.cloud/rpc"
-ACCESS_TOKEN="019b7d96-fff2-7e19-aa5c-24ede6fe62db"
+ACCESS_TOKEN="<access-token>"
 CHAIN_NAME="casper-test"
-SECRET_KEY_PATH="/Users/rohitpurkait/Downloads/Account 1_secret_key.pem"
-WASM_PATH="target/wasm32-unknown-unknown/release/caspershield_contracts.wasm"
+SECRET_KEY_PATH="<secret-path>"
+WASM_PATH="<wasm-path>"
 
 echo "🚀 Deploying CasperShield Contract to Testnet..."
 echo "📡 Node: $NODE_URL"
@@ -77,7 +77,7 @@ fi
 
 echo "✅ Contract deployed successfully!"
 echo "🔗 Deploy hash: $DEPLOY_HASH"
-echo "🌐 View on testnet explorer: https://testnet.cspr.cloud/deploy/$DEPLOY_HASH"
+echo "🌐 View on testnet explorer: https://testnet.cspr.live/transaction/$DEPLOY_HASH"
 
 # Clean up
 rm -f /tmp/deploy.json
